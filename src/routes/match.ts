@@ -20,8 +20,14 @@ const router = Router();
 interface QueueEntry {
   accountId: number;
   username: string;
+  tier: number;      // tier of the tank they queued with
   joinedAtMs: number;
 }
+
+// Players are only paired if their tank tiers are within this many levels
+// of each other -- a tier-10 heavy against a tier-1 starter isn't a match,
+// it's a execution.
+const MAX_TIER_GAP = 1;
 
 interface MatchPlayerState {
   x: number;
@@ -85,9 +91,24 @@ function pruneStale() {
 }
 
 function tryPair() {
-  while (queue.length >= 2) {
-    const a = queue.shift()!;
-    const b = queue.shift()!;
+  // Oldest-first so nobody starves: for each waiting player, look for the
+  // longest-waiting opponent within MAX_TIER_GAP tiers. Anyone with no
+  // valid partner simply stays queued.
+  for (let i = 0; i < queue.length; i++) {
+    let partnerIdx = -1;
+    for (let j = i + 1; j < queue.length; j++) {
+      if (Math.abs(queue[i].tier - queue[j].tier) <= MAX_TIER_GAP) {
+        partnerIdx = j;
+        break;
+      }
+    }
+    if (partnerIdx < 0) continue;
+
+    const a = queue[i];
+    const b = queue[partnerIdx];
+    queue.splice(partnerIdx, 1);
+    queue.splice(i, 1);
+    i = -1; // restart the scan, indices shifted
     const matchId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const match: Match = {
       matchId,
@@ -143,9 +164,15 @@ router.post("/queue/join", requireAuth, async (req, res) => {
 
   if (!queue.some((e) => e.accountId === accountId)) {
     const profile = await getProfile(accountId);
+    // Tier comes from the client (it knows which tank is equipped); clamped
+    // to the real 1-10 range so a bad or forged value can't dodge the
+    // matchmaking rules by claiming tier 0 or 99.
+    const rawTier = Number((req.body ?? {}).tier);
+    const tier = Math.max(1, Math.min(10, Number.isFinite(rawTier) ? Math.trunc(rawTier) : 1));
     queue.push({
       accountId,
       username: profile?.username ?? `player${accountId}`,
+      tier,
       joinedAtMs: Date.now(),
     });
   }

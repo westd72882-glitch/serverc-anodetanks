@@ -23,17 +23,22 @@ const MAX_KILLS_PER_BATTLE = 30;
 const MAX_DAMAGE_PER_BATTLE = 20000;
 const MAX_XP_PER_BATTLE = 20000;
 
-function computeCreditsReward(won: boolean, kills: number, damageDealt: number): number {
+// PvP pays better than fighting bots: the same score against a real
+// opponent is harder to get, and it's the reason to queue at all.
+const PVP_REWARD_MULTIPLIER = 2.0;
+
+function computeCreditsReward(won: boolean, kills: number, damageDealt: number, pvp: boolean): number {
   let credits = 200; // base payout just for finishing a battle
   if (won) credits += 300;
   credits += kills * 150;
   credits += Math.floor(damageDealt * 2.0);
+  if (pvp) credits = Math.floor(credits * PVP_REWARD_MULTIPLIER);
   return credits;
 }
 
 router.post("/result", requireAuth, async (req, res) => {
   const accountId = (req as AuthedRequest).accountId;
-  const { won, kills, damageDealt, xpGained } = req.body ?? {};
+  const { won, kills, damageDealt, xpGained, pvp } = req.body ?? {};
 
   if (typeof won !== "boolean") {
     res.status(400).json({ error: "won (boolean) is required.", code: "invalid_input" });
@@ -48,7 +53,7 @@ router.post("/result", requireAuth, async (req, res) => {
   try {
     const { profile, creditsGained } = await withTransaction(async (client) => {
       await lockProfileRow(client, accountId);
-      const creditsGained = computeCreditsReward(won, safeKills, safeDamage);
+      const creditsGained = computeCreditsReward(won, safeKills, safeDamage, pvp === true);
       await updateEconomy(client, accountId, { credits: creditsGained, experience: safeXp });
       const profile = await getProfile(accountId, client);
       return { profile, creditsGained };

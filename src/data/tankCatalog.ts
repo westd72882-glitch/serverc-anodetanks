@@ -14,11 +14,11 @@ export interface CatalogTank {
 // too, or buy/sell will validate against stale data.
 export const TANK_CATALOG: CatalogTank[] = [
   { id: "ussr_t26b", tier: 2, price: 0, priceGold: 0, isGoldTank: false, rewardOnly: false },
-  { id: "ger_stugiiiausfb", tier: 3, price: 45000, priceGold: 0, isGoldTank: false, rewardOnly: false },
-  { id: "ger_e25", tier: 5, price: 95000, priceGold: 0, isGoldTank: false, rewardOnly: false },
-  { id: "ger_panther", tier: 7, price: 240000, priceGold: 0, isGoldTank: false, rewardOnly: false },
-  { id: "ger_lowe", tier: 9, price: 620000, priceGold: 0, isGoldTank: false, rewardOnly: false },
-  { id: "ger_maus", tier: 10, price: 1250000, priceGold: 0, isGoldTank: false, rewardOnly: false },
+  { id: "ger_stugiiiausfb", tier: 3, price: 4500, priceGold: 0, isGoldTank: false, rewardOnly: false },
+  { id: "ger_e25", tier: 5, price: 9500, priceGold: 0, isGoldTank: false, rewardOnly: false },
+  { id: "ger_panther", tier: 7, price: 24000, priceGold: 0, isGoldTank: false, rewardOnly: false },
+  { id: "ger_lowe", tier: 9, price: 62000, priceGold: 0, isGoldTank: false, rewardOnly: false },
+  { id: "ger_maus", tier: 10, price: 125000, priceGold: 0, isGoldTank: false, rewardOnly: false },
   { id: "usa_m4a3sherman", tier: 5, price: 0, priceGold: 2500, isGoldTank: true, rewardOnly: false },
   { id: "uk_cromwell", tier: 6, price: 0, priceGold: 5000, isGoldTank: true, rewardOnly: false },
   { id: "usa_m41walkerbulldog", tier: 7, price: 0, priceGold: 6500, isGoldTank: true, rewardOnly: false },

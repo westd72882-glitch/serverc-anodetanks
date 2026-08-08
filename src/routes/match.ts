@@ -217,15 +217,27 @@ router.get("/queue/status", requireAuth, (req, res) => {
     return;
   }
 
+  // Per-tier breakdown of everyone waiting, so the client can show a
+  // table ("tier VII: 2 players") instead of just a total -- with
+  // MAX_TIER_GAP pairing, knowing WHICH tiers are queued is what tells a
+  // player whether their wait is likely to end soon.
+  const tierCounts: number[] = new Array(11).fill(0); // index = tier, 1..10
+  for (const e of queue) {
+    const t = Math.max(1, Math.min(10, e.tier));
+    tierCounts[t]++;
+  }
+
   const entry = queue.find((e) => e.accountId === accountId);
   if (!entry) {
-    res.json({ status: "idle", queueSize: queue.length });
+    res.json({ status: "idle", queueSize: queue.length, tierCounts });
     return;
   }
   res.json({
     status: "queued",
     queueSize: queue.length,
     waitSeconds: Math.floor((Date.now() - entry.joinedAtMs) / 1000),
+    myTier: entry.tier,
+    tierCounts,
   });
 });
 

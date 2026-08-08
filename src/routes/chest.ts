@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth, AuthedRequest } from "../auth";
 import { withTransaction, lockProfileRow } from "../db/withTransaction";
 import { getProfile, updateEconomy, addOwnedTank } from "../db/profileRepo";
-import { findChest, CHEST_TANK_DROP_CHANCE } from "../data/chestCatalog";
+import { findChest } from "../data/chestCatalog";
 import { TANK_CATALOG, STARTER_TANK_ID } from "../data/tankCatalog";
 
 const router = Router();
@@ -25,10 +25,19 @@ router.post("/open", requireAuth, async (req, res) => {
     const { profile, result } = await withTransaction(async (client) => {
       const row = await lockProfileRow(client, accountId);
       const credits = Number(row.credits);
-      if (credits < chest.price) {
-        throw Object.assign(new Error("Not enough credits."), { code: "insufficient_credits", status: 402 });
+      // Chests are priced in either currency (ChestDef.costsGold).
+      if (chest.costsGold) {
+        const gold = Number(row.gold);
+        if (gold < chest.price) {
+          throw Object.assign(new Error("Not enough gold."), { code: "insufficient_gold", status: 402 });
+        }
+        await updateEconomy(client, accountId, { gold: -chest.price });
+      } else {
+        if (credits < chest.price) {
+          throw Object.assign(new Error("Not enough credits."), { code: "insufficient_credits", status: 402 });
+        }
+        await updateEconomy(client, accountId, { credits: -chest.price });
       }
-      await updateEconomy(client, accountId, { credits: -chest.price });
 
       const ownedTankIds: string[] = row.owned_tank_ids ?? [];
       const notOwnedPremiums = TANK_CATALOG.filter(
@@ -37,7 +46,7 @@ router.post("/open", requireAuth, async (req, res) => {
 
       let result: { kind: "tank"; tankId: string } | { kind: "credits" | "experience"; amount: number };
 
-      if (notOwnedPremiums.length > 0 && Math.random() < CHEST_TANK_DROP_CHANCE) {
+      if (notOwnedPremiums.length > 0 && Math.random() < chest.tankDropChance) {
         const won = notOwnedPremiums[Math.floor(Math.random() * notOwnedPremiums.length)];
         await addOwnedTank(client, accountId, won.id);
         result = { kind: "tank", tankId: won.id };

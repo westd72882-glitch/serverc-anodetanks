@@ -29,7 +29,19 @@ interface MatchPlayerState {
   hullYaw: number;
   turretYaw: number;
   health: number;
+  maxHealth: number; // so the other client can draw a correct HP bar for a tank it doesn't own
   alive: boolean;
+  // Most recent shot, relayed so the opponent's client can spawn the same
+  // shell locally. shotId increments per shot; the receiver only spawns
+  // when it sees an id it hasn't handled yet, which makes repeated polls
+  // idempotent without needing a real event queue.
+  shotId: number;
+  shotX: number;
+  shotY: number;
+  shotZ: number;
+  shotYaw: number;
+  shotPitch: number;
+  shotDamage: number;
   updatedAtMs: number;
 }
 
@@ -91,6 +103,24 @@ function tryPair() {
   }
 }
 
+// Both /queue/join and /queue/status must describe a match the SAME way.
+// They didn't before: join replied with just {status,matchId}, so a client
+// that got paired at the moment it joined never learned its side or the
+// opponent's name -- it fell back to side 0 and a blank name. With both
+// clients defaulting to side 0 they spawned on top of each other, and the
+// nameplate showed a placeholder instead of the real player.
+function matchedPayload(matchId: string, accountId: number, queueSize: number) {
+  const m = matches.get(matchId)!;
+  const opponent = m.players.find((p) => p.accountId !== accountId);
+  return {
+    status: "matched",
+    matchId,
+    opponentUsername: opponent?.username ?? "Opponent",
+    side: m.players[0].accountId === accountId ? 0 : 1,
+    queueSize,
+  };
+}
+
 function removeFromQueue(accountId: number) {
   const idx = queue.findIndex((e) => e.accountId === accountId);
   if (idx >= 0) queue.splice(idx, 1);
@@ -105,7 +135,7 @@ router.post("/queue/join", requireAuth, async (req, res) => {
   // Already in a match -- hand that back instead of queueing twice.
   const existing = accountToMatch.get(accountId);
   if (existing && matches.has(existing)) {
-    res.json({ status: "matched", matchId: existing, queueSize: queue.length });
+    res.json(matchedPayload(existing, accountId, queue.length));
     return;
   }
 
@@ -122,7 +152,7 @@ router.post("/queue/join", requireAuth, async (req, res) => {
 
   const matchId = accountToMatch.get(accountId);
   if (matchId && matches.has(matchId)) {
-    res.json({ status: "matched", matchId, queueSize: queue.length });
+    res.json(matchedPayload(matchId, accountId, queue.length));
     return;
   }
   const entry = queue.find((e) => e.accountId === accountId);
@@ -152,17 +182,9 @@ router.get("/queue/status", requireAuth, (req, res) => {
 
   const matchId = accountToMatch.get(accountId);
   if (matchId && matches.has(matchId)) {
-    const m = matches.get(matchId)!;
-    const opponent = m.players.find((p) => p.accountId !== accountId);
-    res.json({
-      status: "matched",
-      matchId,
-      opponentUsername: opponent?.username ?? "Opponent",
-      // Index in players[] decides spawn side, so both clients agree on
-      // who starts where without any extra negotiation.
-      side: m.players[0].accountId === accountId ? 0 : 1,
-      queueSize: queue.length,
-    });
+    // Index in players[] decides spawn side, so both clients agree on
+    // who starts where without any extra negotiation.
+    res.json(matchedPayload(matchId, accountId, queue.length));
     return;
   }
 
@@ -192,7 +214,8 @@ router.post("/state", requireAuth, (req, res) => {
     return;
   }
   const m = matches.get(matchId)!;
-  const { x, z, hullYaw, turretYaw, health, alive } = req.body ?? {};
+  const b = req.body ?? {};
+  const { x, z, hullYaw, turretYaw, health, alive } = b;
   // Values arrive pre-scaled as integers from the client (x/z are x100,
   // yaws are x1000 -- see ServerSync::MatchSendState) and are relayed
   // back out in exactly the same units, so the server never has to know
@@ -203,7 +226,15 @@ router.post("/state", requireAuth, (req, res) => {
     hullYaw: Math.trunc(Number(hullYaw) || 0),
     turretYaw: Math.trunc(Number(turretYaw) || 0),
     health: Math.trunc(Number(health) || 0),
+    maxHealth: Math.trunc(Number(b.maxHealth) || 0),
     alive: alive !== false,
+    shotId: Math.trunc(Number(b.shotId) || 0),
+    shotX: Math.trunc(Number(b.shotX) || 0),
+    shotY: Math.trunc(Number(b.shotY) || 0),
+    shotZ: Math.trunc(Number(b.shotZ) || 0),
+    shotYaw: Math.trunc(Number(b.shotYaw) || 0),
+    shotPitch: Math.trunc(Number(b.shotPitch) || 0),
+    shotDamage: Math.trunc(Number(b.shotDamage) || 0),
     updatedAtMs: Date.now(),
   };
 
@@ -212,11 +243,20 @@ router.post("/state", requireAuth, (req, res) => {
   // hasOpponent lets the client tell "no state from them yet" apart from
   // "they're at the origin", without needing null-handling in its
   // minimal JSON reader.
+  // opponentAgeMs is how long ago their last update arrived. The client
+  // uses it to detect a disconnect: previously the server kept handing
+  // back their final frozen state forever, so "no fresh data" was
+  // indistinguishable from "standing still" and a rage-quit left the
+  // match hanging against an invincible statue.
   res.json({
     matchId,
     finished: m.finished,
     hasOpponent: !!opponentState,
-    opponent: opponentState ?? { x: 0, z: 0, hullYaw: 0, turretYaw: 0, health: 0, alive: false, updatedAtMs: 0 },
+    opponentAgeMs: opponentState ? Date.now() - opponentState.updatedAtMs : 999999,
+    opponent: opponentState ?? {
+      x: 0, z: 0, hullYaw: 0, turretYaw: 0, health: 0, maxHealth: 0, alive: false,
+      shotId: 0, shotX: 0, shotY: 0, shotZ: 0, shotYaw: 0, shotPitch: 0, shotDamage: 0, updatedAtMs: 0,
+    },
   });
 });
 

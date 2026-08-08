@@ -31,6 +31,7 @@ interface MatchPlayerState {
   health: number;
   maxHealth: number; // so the other client can draw a correct HP bar for a tank it doesn't own
   tankId: string;    // catalog id, so the opponent's nameplate can show the real tank name + tier
+  dmgDealt: number;  // total damage this player has dealt to the other one; the receiver applies it to itself
   alive: boolean;
   // Most recent shot, relayed so the opponent's client can spawn the same
   // shell locally. shotId increments per shot; the receiver only spawns
@@ -229,6 +230,7 @@ router.post("/state", requireAuth, (req, res) => {
     health: Math.trunc(Number(health) || 0),
     maxHealth: Math.trunc(Number(b.maxHealth) || 0),
     tankId: typeof b.tankId === "string" ? b.tankId.slice(0, 64) : "",
+    dmgDealt: Math.max(0, Math.trunc(Number(b.dmgDealt) || 0)),
     alive: alive !== false,
     shotId: Math.trunc(Number(b.shotId) || 0),
     shotX: Math.trunc(Number(b.shotX) || 0),
@@ -256,7 +258,7 @@ router.post("/state", requireAuth, (req, res) => {
     hasOpponent: !!opponentState,
     opponentAgeMs: opponentState ? Date.now() - opponentState.updatedAtMs : 999999,
     opponent: opponentState ?? {
-      x: 0, z: 0, hullYaw: 0, turretYaw: 0, health: 0, maxHealth: 0, tankId: "", alive: false,
+      x: 0, z: 0, hullYaw: 0, turretYaw: 0, health: 0, maxHealth: 0, tankId: "", dmgDealt: 0, alive: false,
       shotId: 0, shotX: 0, shotY: 0, shotZ: 0, shotYaw: 0, shotPitch: 0, shotDamage: 0, updatedAtMs: 0,
     },
   });

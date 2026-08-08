@@ -1,0 +1,54 @@
+-- ============================================================================
+-- Schema for the tank game's server-authoritative backend.
+--
+-- Two tables:
+--   accounts -- login credentials only (username + password hash)
+--   profiles -- everything else (currency, owned tanks, roulette state,
+--               battle pass progress), one row per account, 1:1 via
+--               account_id
+--
+-- Split into two tables (rather than one) so password_hash never has to
+-- be touched/selected by any of the economy endpoints -- those only ever
+-- query/update `profiles`, which has no sensitive auth data in it at all.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS accounts (
+    id            SERIAL PRIMARY KEY,
+    username      TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Case-insensitive username lookups (so "Player1" and "player1" collide
+-- correctly at both registration and login) without needing a citext
+-- extension -- a plain lowercase functional index is enough here.
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_username_lower_idx
+    ON accounts (LOWER(username));
+
+CREATE TABLE IF NOT EXISTS profiles (
+    account_id                INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+
+    -- Economy
+    credits                   BIGINT NOT NULL DEFAULT 0,
+    gold                      BIGINT NOT NULL DEFAULT 0,
+    experience                BIGINT NOT NULL DEFAULT 0,
+
+    -- Garage. owned_tank_ids does NOT include the free starter tank (see
+    -- src/data/tankCatalog.ts STARTER_TANK_ID) -- it's always owned
+    -- implicitly and never stored here, same as the C++ client's
+    -- ProfileManager::IsTankOwned(string) shortcut.
+    owned_tank_ids             TEXT[] NOT NULL DEFAULT '{}',
+    selected_tank_id           TEXT NOT NULL DEFAULT '',
+
+    -- Battle Pass: 1-based tier numbers already claimed.
+    battle_pass_claimed_tiers  INTEGER[] NOT NULL DEFAULT '{}',
+
+    -- Roulette: 0 = never spun yet (server treats that as
+    -- ROULETTE_BASE_COST, see src/data/rouletteCatalog.ts), doubles after
+    -- every successful spin. won_reward_ids can never repeat a value.
+    roulette_cost              BIGINT NOT NULL DEFAULT 0,
+    roulette_won_reward_ids    TEXT[] NOT NULL DEFAULT '{}',
+
+    created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_login_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+);

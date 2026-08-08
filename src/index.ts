@@ -23,8 +23,20 @@ app.use(express.json());
 // alive) and by our own self-ping (see keepAlive.ts). Deliberately does
 // NOT touch the database, so it stays fast and can't itself become a
 // source of downtime if the DB is briefly unreachable.
+// Minimum client version allowed to play. Bump this on every release
+// that changes anything the client and server must agree on (economy
+// numbers, match protocol, catalog contents) -- older clients are then
+// refused at startup instead of silently running against rules they
+// don't share, which is how desyncs and "my money disappeared" reports
+// start. Format is "major.minor.patch", compared numerically per part.
+const MIN_CLIENT_VERSION = "1.0.0";
+
+// Health check -- used by Render, by our own self-ping (keepAlive.ts) and
+// by the client's startup connectivity probe, which also reads the
+// version requirement out of this same response so startup needs one
+// round trip rather than two.
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.json({ ok: true, time: new Date().toISOString(), minVersion: MIN_CLIENT_VERSION });
 });
 
 // /auth/* is the only unauthenticated surface -- everything else below

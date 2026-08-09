@@ -113,11 +113,36 @@ router.post("/open", requireAuth, async (req, res) => {
       await removeStoredChest(client, accountId, storedId);
 
       const ownedTankIds: string[] = row.owned_tank_ids ?? [];
+
+      let result: { kind: "tank"; tankId: string } | { kind: "credits" | "experience"; amount: number };
+
+      if (chest.guaranteedTier > 0) {
+        // Certificate: always a tank, restricted to exactly this tier,
+        // ANY tank at that tier the player doesn't already own (not just
+        // premium ones -- unlike a regular chest's drop pool below). No
+        // currency fallback except the one edge case: every tier-N tank
+        // is already owned, in which case there's nothing left to
+        // guarantee and the certificate refunds its own price as credits
+        // rather than silently vanishing.
+        const tierTanks = TANK_CATALOG.filter(
+          (t) => t.tier === chest.guaranteedTier && !t.rewardOnly && !ownedTankIds.includes(t.id)
+        );
+        if (tierTanks.length > 0) {
+          const won = tierTanks[Math.floor(Math.random() * tierTanks.length)];
+          await addOwnedTank(client, accountId, won.id);
+          result = { kind: "tank", tankId: won.id };
+        } else {
+          await updateEconomy(client, accountId, { credits: chest.price });
+          result = { kind: "credits", amount: chest.price };
+        }
+
+        const profile = await getProfile(accountId, client);
+        return { profile, result };
+      }
+
       const notOwnedPremiums = TANK_CATALOG.filter(
         (t) => t.isGoldTank && !t.rewardOnly && t.id !== STARTER_TANK_ID && !ownedTankIds.includes(t.id)
       );
-
-      let result: { kind: "tank"; tankId: string } | { kind: "credits" | "experience"; amount: number };
 
       if (notOwnedPremiums.length > 0 && Math.random() < chest.tankDropChance) {
         const won = notOwnedPremiums[Math.floor(Math.random() * notOwnedPremiums.length)];

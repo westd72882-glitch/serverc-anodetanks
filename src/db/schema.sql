@@ -73,3 +73,20 @@ CREATE TABLE IF NOT EXISTS promo_activations (
 -- Codes this account has already redeemed, so the same one can't be used
 -- twice on one account even while global activations remain.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS redeemed_promo_codes TEXT[] NOT NULL DEFAULT '{}';
+
+-- ============================================================================
+-- Cosmetic skins + per-tank upgrade levels.
+--
+-- Added as ALTER ... IF NOT EXISTS rather than columns in the CREATE TABLE
+-- above so an already-deployed database picks them up on the next
+-- `npm run migrate` instead of needing the table dropped -- existing
+-- accounts just start with the empty defaults, which is exactly the
+-- correct state for them (no skins bought, every tank at stock level 1).
+--
+-- owned_skin_ids  : every skin id (data/skinCatalog.ts) this account bought.
+-- equipped_skin_ids: the subset currently worn, at most one per tank.
+-- tank_upgrades   : "tankId:level" pairs; only tanks above stock appear.
+-- ============================================================================
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS owned_skin_ids    TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS equipped_skin_ids TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tank_upgrades     TEXT[] NOT NULL DEFAULT '{}';

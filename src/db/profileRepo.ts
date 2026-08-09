@@ -20,6 +20,9 @@ function rowToProfile(row: any): Profile {
     battlePassClaimedTiers: row.battle_pass_claimed_tiers ?? [],
     rouletteCost: Number(row.roulette_cost),
     rouletteWonRewardIds: row.roulette_won_reward_ids ?? [],
+    ownedSkinIds: row.owned_skin_ids ?? [],
+    equippedSkinIds: row.equipped_skin_ids ?? [],
+    tankUpgrades: row.tank_upgrades ?? [],
   };
 }
 
@@ -116,6 +119,31 @@ export async function addBattlePassClaimedTier(client: PoolClient, accountId: nu
 
 export async function setRouletteCost(client: PoolClient, accountId: number, cost: number): Promise<void> {
   await client.query(`UPDATE profiles SET roulette_cost = $2 WHERE account_id = $1`, [accountId, cost]);
+}
+
+// --- Skins -----------------------------------------------------------------
+
+export async function addOwnedSkin(client: PoolClient, accountId: number, skinId: string): Promise<void> {
+  await client.query(
+    `UPDATE profiles
+     SET owned_skin_ids = array_append(owned_skin_ids, $2)
+     WHERE account_id = $1 AND NOT ($2 = ANY(owned_skin_ids))`,
+    [accountId, skinId]
+  );
+}
+
+// Replaces the whole equipped list in one write. The caller works out the
+// new list (see routes/skin.ts), because the one-skin-per-tank rule needs
+// the catalog to decide which existing entries belong to the same tank --
+// that's application logic, not something to express in SQL here.
+export async function setEquippedSkins(client: PoolClient, accountId: number, skinIds: string[]): Promise<void> {
+  await client.query(`UPDATE profiles SET equipped_skin_ids = $2 WHERE account_id = $1`, [accountId, skinIds]);
+}
+
+// --- Per-tank upgrades ------------------------------------------------------
+
+export async function setTankUpgrades(client: PoolClient, accountId: number, pairs: string[]): Promise<void> {
+  await client.query(`UPDATE profiles SET tank_upgrades = $2 WHERE account_id = $1`, [accountId, pairs]);
 }
 
 export async function addRouletteWonReward(client: PoolClient, accountId: number, rewardId: string): Promise<void> {

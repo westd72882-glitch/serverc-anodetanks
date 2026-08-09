@@ -52,3 +52,24 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_login_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ============================================================================
+-- Promo codes.
+--
+-- The codes themselves are NOT stored here -- they're defined in the
+-- PROMOCODE environment variable on the host (see src/promo.ts), so they
+-- can be changed without a migration. What lives in the database is the
+-- part that must survive restarts: how many times each code has been
+-- redeemed globally, and which codes each account has already used.
+-- Keeping the counter in Postgres rather than in memory is what stops a
+-- redeploy from silently resetting a "1 activation" code back to unused.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS promo_activations (
+    code       TEXT PRIMARY KEY,   -- lowercased code name
+    used_count INTEGER NOT NULL DEFAULT 0
+);
+
+-- Codes this account has already redeemed, so the same one can't be used
+-- twice on one account even while global activations remain.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS redeemed_promo_codes TEXT[] NOT NULL DEFAULT '{}';

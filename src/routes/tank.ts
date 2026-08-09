@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth, AuthedRequest } from "../auth";
 import { withTransaction, lockProfileRow } from "../db/withTransaction";
-import { getProfile, updateEconomy, addOwnedTank, removeOwnedTank, setSelectedTank, clearSelectedTankIfMatches, setTankUpgrades } from "../db/profileRepo";
+import { getProfile, updateEconomy, addOwnedTank, removeOwnedTank, setSelectedTank, clearSelectedTankIfMatches, setTankUpgrades, addFavoriteTank, removeFavoriteTank } from "../db/profileRepo";
 import { findTank, STARTER_TANK_ID } from "../data/tankCatalog";
 import { sellPriceForTank } from "../data/sellPrice";
 import { MAX_UPGRADE_LEVEL, upgradeCost, levelFromPairs, withLevel } from "../data/tankUpgrades";
@@ -227,6 +227,38 @@ router.post("/upgrade", requireAuth, async (req, res) => {
     }
     console.error("tank/upgrade failed:", err);
     res.status(500).json({ error: "Upgrade failed, please try again.", code: "internal_error" });
+  }
+});
+
+// ============================================================================
+// POST /tank/favorite { tankId, favorite } -- adds or removes a tank from
+// the account's favorites list (see db/schema.sql's favorite_tank_ids
+// comment). Purely a display preference: no economy, no ownership check
+// -- favoriting a tank you don't (yet) own is harmless and not worth
+// blocking, since it's just a client-side sort hint.
+// ============================================================================
+router.post("/favorite", requireAuth, async (req, res) => {
+  const accountId = (req as AuthedRequest).accountId;
+  const { tankId, favorite } = req.body ?? {};
+  if (typeof tankId !== "string" || typeof favorite !== "boolean") {
+    res.status(400).json({ error: "tankId and favorite are required.", code: "invalid_input" });
+    return;
+  }
+
+  try {
+    const profile = await withTransaction(async (client) => {
+      if (favorite) {
+        await addFavoriteTank(client, accountId, tankId);
+      } else {
+        await removeFavoriteTank(client, accountId, tankId);
+      }
+      return await getProfile(accountId, client);
+    });
+
+    res.json({ profile });
+  } catch (err: any) {
+    console.error("tank/favorite failed:", err);
+    res.status(500).json({ error: "Could not update favorites, please try again.", code: "internal_error" });
   }
 });
 

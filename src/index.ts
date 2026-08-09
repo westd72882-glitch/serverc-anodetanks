@@ -10,6 +10,7 @@ import { getPromoCodes } from "./promo";
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
 import tankRoutes from "./routes/tank";
+import skinRoutes from "./routes/skin";
 import rouletteRoutes from "./routes/roulette";
 import chestRoutes from "./routes/chest";
 import battlepassRoutes from "./routes/battlepass";
@@ -47,6 +48,7 @@ app.use("/auth", authRoutes);
 
 app.use("/profile", requireAuth, profileRoutes);
 app.use("/tank", requireAuth, tankRoutes);
+app.use("/skin", requireAuth, skinRoutes);
 app.use("/roulette", requireAuth, rouletteRoutes);
 app.use("/chest", requireAuth, chestRoutes);
 app.use("/battlepass", requireAuth, battlepassRoutes);

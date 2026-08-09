@@ -30,6 +30,17 @@ export interface Profile {
 
   rouletteCost: number; // 0 = never spun yet, treat as ROULETTE_BASE_COST
   rouletteWonRewardIds: string[];
+
+  // Cosmetic skins (see data/skinCatalog.ts). equippedSkinIds holds at
+  // most one skin per tank -- every skin already knows its own tankId, so
+  // no second key is needed to say what it's worn on.
+  ownedSkinIds: string[];
+  equippedSkinIds: string[];
+
+  // Per-tank upgrade levels as "tankId:level" strings (see
+  // data/tankUpgrades.ts for why it's a flat string array and not an
+  // object). Only tanks above stock level 1 appear here.
+  tankUpgrades: string[];
 }
 
 // What a brand-new account's profile row looks like -- mirrors the C++
@@ -46,6 +57,9 @@ export function newProfileDefaults(): Omit<Profile, "accountId" | "username" | "
     battlePassClaimedTiers: [],
     rouletteCost: 0,
     rouletteWonRewardIds: [],
+    ownedSkinIds: [],
+    equippedSkinIds: [],
+    tankUpgrades: [],
   };
 }
 

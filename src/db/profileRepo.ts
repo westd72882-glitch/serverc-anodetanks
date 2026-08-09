@@ -24,6 +24,7 @@ function rowToProfile(row: any): Profile {
     equippedSkinIds: row.equipped_skin_ids ?? [],
     tankUpgrades: row.tank_upgrades ?? [],
     storedChestIds: row.stored_chest_ids ?? [],
+    favoriteTankIds: row.favorite_tank_ids ?? [],
   };
 }
 
@@ -145,6 +146,24 @@ export async function setEquippedSkins(client: PoolClient, accountId: number, sk
 
 export async function setTankUpgrades(client: PoolClient, accountId: number, pairs: string[]): Promise<void> {
   await client.query(`UPDATE profiles SET tank_upgrades = $2 WHERE account_id = $1`, [accountId, pairs]);
+}
+
+// --- Favorite tanks -----------------------------------------------------------
+
+export async function addFavoriteTank(client: PoolClient, accountId: number, tankId: string): Promise<void> {
+  await client.query(
+    `UPDATE profiles
+     SET favorite_tank_ids = array_append(favorite_tank_ids, $2)
+     WHERE account_id = $1 AND NOT ($2 = ANY(favorite_tank_ids))`,
+    [accountId, tankId]
+  );
+}
+
+export async function removeFavoriteTank(client: PoolClient, accountId: number, tankId: string): Promise<void> {
+  await client.query(
+    `UPDATE profiles SET favorite_tank_ids = array_remove(favorite_tank_ids, $2) WHERE account_id = $1`,
+    [accountId, tankId]
+  );
 }
 
 // --- Storage (unopened chests) ----------------------------------------------

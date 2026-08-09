@@ -104,3 +104,14 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tank_upgrades     TEXT[] NOT NULL 
 -- chest is bought.
 -- ============================================================================
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stored_chest_ids  TEXT[] NOT NULL DEFAULT '{}';
+
+-- ============================================================================
+-- Favorite tanks.
+--
+-- Purely a display preference (see gamescripts/ProfileManager.h) -- pins
+-- favorited tanks to the front of the garage carousel ahead of whatever
+-- sort mode is active. No economy involved, so unlike stored_chest_ids
+-- or tank_upgrades there's no accompanying "instanceId" or cost logic,
+-- just a plain list of tank ids.
+-- ============================================================================
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS favorite_tank_ids TEXT[] NOT NULL DEFAULT '{}';

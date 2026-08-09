@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import { requireAuth } from "./auth";
 import { startKeepAlive } from "./keepAlive";
+import { getPromoCodes } from "./promo";
 
 import authRoutes from "./routes/auth";
 import profileRoutes from "./routes/profile";
@@ -14,6 +15,7 @@ import chestRoutes from "./routes/chest";
 import battlepassRoutes from "./routes/battlepass";
 import battleRoutes from "./routes/battle";
 import matchRoutes from "./routes/match";
+import promoRoutes from "./routes/promo";
 
 const app = express();
 app.use(cors());
@@ -50,9 +52,14 @@ app.use("/chest", requireAuth, chestRoutes);
 app.use("/battlepass", requireAuth, battlepassRoutes);
 app.use("/battle", requireAuth, battleRoutes);
 app.use("/match", requireAuth, matchRoutes);
+app.use("/promo", requireAuth, promoRoutes);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
+  // Parse PROMOCODE now rather than on first redeem, so a typo in the
+  // env var shows up in the deploy log instead of at the moment a player
+  // tries to use it.
+  getPromoCodes();
   startKeepAlive();
 });

@@ -23,6 +23,7 @@ function rowToProfile(row: any): Profile {
     ownedSkinIds: row.owned_skin_ids ?? [],
     equippedSkinIds: row.equipped_skin_ids ?? [],
     tankUpgrades: row.tank_upgrades ?? [],
+    storedChestIds: row.stored_chest_ids ?? [],
   };
 }
 
@@ -144,6 +145,26 @@ export async function setEquippedSkins(client: PoolClient, accountId: number, sk
 
 export async function setTankUpgrades(client: PoolClient, accountId: number, pairs: string[]): Promise<void> {
   await client.query(`UPDATE profiles SET tank_upgrades = $2 WHERE account_id = $1`, [accountId, pairs]);
+}
+
+// --- Storage (unopened chests) ----------------------------------------------
+
+export async function addStoredChest(client: PoolClient, accountId: number, storedId: string): Promise<void> {
+  await client.query(
+    `UPDATE profiles SET stored_chest_ids = array_append(stored_chest_ids, $2) WHERE account_id = $1`,
+    [accountId, storedId]
+  );
+}
+
+// Removes exactly one occurrence of `storedId`. Uses array_remove, which
+// (unlike a client-side filter-and-rewrite) is atomic against concurrent
+// writes to other elements of the same array -- important here since a
+// player could plausibly buy a second chest while the first is mid-open.
+export async function removeStoredChest(client: PoolClient, accountId: number, storedId: string): Promise<void> {
+  await client.query(
+    `UPDATE profiles SET stored_chest_ids = array_remove(stored_chest_ids, $2) WHERE account_id = $1`,
+    [accountId, storedId]
+  );
 }
 
 export async function addRouletteWonReward(client: PoolClient, accountId: number, rewardId: string): Promise<void> {

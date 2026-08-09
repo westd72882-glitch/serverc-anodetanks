@@ -90,3 +90,17 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS redeemed_promo_codes TEXT[] NOT NU
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS owned_skin_ids    TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS equipped_skin_ids TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tank_upgrades     TEXT[] NOT NULL DEFAULT '{}';
+
+-- ============================================================================
+-- Storage (unopened chests/containers).
+--
+-- Buying a chest in the Store no longer opens it immediately -- it goes
+-- into this array instead, and is only actually opened (rolled for a
+-- reward) from the Storage tab. Each entry is "chestId:instanceId",
+-- e.g. "chest_premium:7f3a2c1e" -- the instanceId exists purely so two
+-- chests of the SAME type sitting in storage together have distinct,
+-- individually-openable keys; it carries no other meaning and is
+-- generated server-side (crypto.randomUUID(), truncated) whenever a
+-- chest is bought.
+-- ============================================================================
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stored_chest_ids  TEXT[] NOT NULL DEFAULT '{}';

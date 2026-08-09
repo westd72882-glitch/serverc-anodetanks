@@ -47,6 +47,10 @@ export interface Profile {
   // exists). Buying a chest appends here; opening one removes it and
   // rolls a reward -- see routes/chest.ts.
   storedChestIds: string[];
+
+  // Favorited tank ids (TankCatalog.h). Purely a client-side display
+  // preference -- pins these to the front of the garage carousel.
+  favoriteTankIds: string[];
 }
 
 // What a brand-new account's profile row looks like -- mirrors the C++
@@ -67,6 +71,7 @@ export function newProfileDefaults(): Omit<Profile, "accountId" | "username" | "
     equippedSkinIds: [],
     tankUpgrades: [],
     storedChestIds: [],
+    favoriteTankIds: [],
   };
 }
 

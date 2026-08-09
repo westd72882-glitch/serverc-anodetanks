@@ -41,6 +41,12 @@ export interface Profile {
   // data/tankUpgrades.ts for why it's a flat string array and not an
   // object). Only tanks above stock level 1 appear here.
   tankUpgrades: string[];
+
+  // Unopened chests sitting in Storage, as "chestId:instanceId" strings
+  // (see db/schema.sql's stored_chest_ids comment for why instanceId
+  // exists). Buying a chest appends here; opening one removes it and
+  // rolls a reward -- see routes/chest.ts.
+  storedChestIds: string[];
 }
 
 // What a brand-new account's profile row looks like -- mirrors the C++
@@ -60,6 +66,7 @@ export function newProfileDefaults(): Omit<Profile, "accountId" | "username" | "
     ownedSkinIds: [],
     equippedSkinIds: [],
     tankUpgrades: [],
+    storedChestIds: [],
   };
 }
 

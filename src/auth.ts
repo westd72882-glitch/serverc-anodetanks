@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { touchPresence } from "./presence";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -33,6 +34,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = jwt.verify(token, JWT_SECRET!) as { accountId: number };
     (req as AuthedRequest).accountId = payload.accountId;
+    // Every authenticated request counts as "this account is online" --
+    // not just matchmaking traffic, so someone sitting in the Store or
+    // Garage still shows up in the online count. See presence.ts for
+    // the actual counting logic.
+    touchPresence(payload.accountId);
     next();
   } catch (err) {
     res.status(401).json({ error: "Invalid or expired session, please log in again.", code: "invalid_token" });

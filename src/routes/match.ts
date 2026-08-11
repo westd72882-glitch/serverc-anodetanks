@@ -38,6 +38,9 @@ interface MatchPlayerState {
   maxHealth: number; // so the other client can draw a correct HP bar for a tank it doesn't own
   tankId: string;    // catalog id, so the opponent's nameplate can show the real tank name + tier
   dmgDealt: number;  // total damage this player has dealt to the other one; the receiver applies it to itself
+  // Per-tank upgrade level (1..10). Relayed so the other client can
+  // resolve this tank's real stats instead of assuming stock.
+  upgradeLevel: number;
   alive: boolean;
   // Most recent shot, relayed so the opponent's client can spawn the same
   // shell locally. shotId increments per shot; the receiver only spawns
@@ -50,6 +53,17 @@ interface MatchPlayerState {
   shotYaw: number;
   shotPitch: number;
   shotDamage: number;
+  // In-match chat, piggybacked on the same state exchange (see
+  // gamescripts/ServerSync::MatchSendState's doc comment). chatSeq
+  // increments once per message this player has SENT; chatMsg/chatNick
+  // describe that most recent one. Same idempotency trick as shotId --
+  // the receiver only surfaces a "new" chat line when the seq it reads
+  // back is higher than the last one it already saw, so a message is
+  // never duplicated across repeated polls, and a state update with
+  // nothing new to say just carries the same seq/text as last time.
+  chatSeq: number;
+  chatNick: string;
+  chatMsg: string;
   updatedAtMs: number;
 }
 
@@ -270,6 +284,7 @@ router.post("/state", requireAuth, (req, res) => {
     maxHealth: Math.trunc(Number(b.maxHealth) || 0),
     tankId: typeof b.tankId === "string" ? b.tankId.slice(0, 64) : "",
     dmgDealt: Math.max(0, Math.trunc(Number(b.dmgDealt) || 0)),
+    upgradeLevel: Math.min(10, Math.max(1, Math.trunc(Number(b.upgradeLevel) || 1))),
     alive: alive !== false,
     shotId: Math.trunc(Number(b.shotId) || 0),
     shotX: Math.trunc(Number(b.shotX) || 0),
@@ -278,6 +293,31 @@ router.post("/state", requireAuth, (req, res) => {
     shotYaw: Math.trunc(Number(b.shotYaw) || 0),
     shotPitch: Math.trunc(Number(b.shotPitch) || 0),
     shotDamage: Math.trunc(Number(b.shotDamage) || 0),
+    // Chat: only overwrite the stored seq/nick/msg when the client sent a
+    // HIGHER seq than what's already recorded -- a plain state update
+    // with nothing new to say arrives with chatSeq=0 (see
+    // ServerSync::MatchSendState), which must NOT clobber the last real
+    // message with blanks before the opponent has had a chance to read
+    // it back.
+    ...(() => {
+      const prev = m.state[accountId];
+      const incomingSeq = Math.trunc(Number(b.chatSeq) || 0);
+      if (incomingSeq > 0 && incomingSeq > (prev?.chatSeq ?? 0) && typeof b.chatMsg === "string" && b.chatMsg.length > 0) {
+        return {
+          chatSeq: incomingSeq,
+          chatNick: typeof b.chatNick === "string" ? b.chatNick.slice(0, 32) : "",
+          chatMsg: b.chatMsg.slice(0, 140),
+        };
+      }
+      // Nothing new -- carry the previous chat fields forward unchanged
+      // so they're still there to hand back on the NEXT poll too (the
+      // opponent might not have read this response yet).
+      return {
+        chatSeq: prev?.chatSeq ?? 0,
+        chatNick: prev?.chatNick ?? "",
+        chatMsg: prev?.chatMsg ?? "",
+      };
+    })(),
     updatedAtMs: Date.now(),
   };
 
@@ -297,9 +337,17 @@ router.post("/state", requireAuth, (req, res) => {
     hasOpponent: !!opponentState,
     opponentAgeMs: opponentState ? Date.now() - opponentState.updatedAtMs : 999999,
     opponent: opponentState ?? {
-      x: 0, z: 0, hullYaw: 0, turretYaw: 0, health: 0, maxHealth: 0, tankId: "", dmgDealt: 0, alive: false,
-      shotId: 0, shotX: 0, shotY: 0, shotZ: 0, shotYaw: 0, shotPitch: 0, shotDamage: 0, updatedAtMs: 0,
+      x: 0, z: 0, hullYaw: 0, turretYaw: 0, health: 0, maxHealth: 0, tankId: "", dmgDealt: 0, upgradeLevel: 1, alive: false,
+      shotId: 0, shotX: 0, shotY: 0, shotZ: 0, shotYaw: 0, shotPitch: 0, shotDamage: 0,
+      chatSeq: 0, chatNick: "", chatMsg: "", updatedAtMs: 0,
     },
+    // Opponent's chat surfaced as top-level fields (not nested under
+    // "opponent") since it's conceptually about THIS exchange, not part
+    // of their tank's transform/health -- keeps GameGameplay.cpp's
+    // parsing of the two concerns separate.
+    opponentChatSeq: opponentState?.chatSeq ?? 0,
+    opponentChatNick: opponentState?.chatNick ?? "",
+    opponentChatMsg: opponentState?.chatMsg ?? "",
   });
 });
 

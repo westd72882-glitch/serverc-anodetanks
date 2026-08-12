@@ -20,6 +20,7 @@ import matchRoutes from "./routes/match";
 import promoRoutes from "./routes/promo";
 import onlineRoutes from "./routes/online";
 import missionRoutes from "./routes/mission";
+import socialRoutes from "./routes/social";
 
 const app = express();
 app.use(cors());
@@ -61,6 +62,7 @@ app.use("/match", requireAuth, matchRoutes);
 app.use("/promo", requireAuth, promoRoutes);
 app.use("/online", requireAuth, onlineRoutes);
 app.use("/mission", requireAuth, missionRoutes);
+app.use("/social", requireAuth, socialRoutes);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.listen(PORT, () => {

@@ -19,6 +19,7 @@ import battleRoutes from "./routes/battle";
 import matchRoutes from "./routes/match";
 import promoRoutes from "./routes/promo";
 import onlineRoutes from "./routes/online";
+import missionRoutes from "./routes/mission";
 
 const app = express();
 app.use(cors());
@@ -59,6 +60,7 @@ app.use("/battle", requireAuth, battleRoutes);
 app.use("/match", requireAuth, matchRoutes);
 app.use("/promo", requireAuth, promoRoutes);
 app.use("/online", requireAuth, onlineRoutes);
+app.use("/mission", requireAuth, missionRoutes);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.listen(PORT, () => {

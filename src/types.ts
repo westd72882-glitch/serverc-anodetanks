@@ -51,6 +51,10 @@ export interface Profile {
   // Favorited tank ids (TankCatalog.h). Purely a client-side display
   // preference -- pins these to the front of the garage carousel.
   favoriteTankIds: string[];
+
+  // Special-mission clear counts as "missionId:count" pairs -- drives the
+  // halving reward curve (see data/missionCatalog.ts).
+  missionClears: string[];
 }
 
 // What a brand-new account's profile row looks like -- mirrors the C++
@@ -72,6 +76,7 @@ export function newProfileDefaults(): Omit<Profile, "accountId" | "username" | "
     tankUpgrades: [],
     storedChestIds: [],
     favoriteTankIds: [],
+    missionClears: [],
   };
 }
 

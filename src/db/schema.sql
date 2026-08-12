@@ -121,3 +121,60 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS favorite_tank_ids TEXT[] NOT NULL 
 -- state, not just a stat -- resetting it would hand out the full
 -- first-clear reward all over again.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS mission_clears TEXT[] NOT NULL DEFAULT '{}';
+
+-- ============================================================================
+-- Social: friends, direct messages, blocks.
+--
+-- Separate tables rather than TEXT[] columns on profiles (the pattern
+-- used for everything else above) because these are RELATIONSHIPS between
+-- two accounts, not a list owned by one: a friendship has to be readable
+-- from both sides, a message has a sender AND a recipient, and both need
+-- indexing to query efficiently. Cramming that into arrays would mean
+-- rewriting both accounts' arrays on every change and scanning them on
+-- every read.
+-- ============================================================================
+
+-- One row per friendship/request. account_id is the requester, friend_id
+-- the target. Status flows pending -> accepted; a decline just deletes
+-- the row. The pair is stored ONCE (not mirrored), so queries look at
+-- both columns -- see friendRepo.ts.
+CREATE TABLE IF NOT EXISTS friendships (
+    id          SERIAL PRIMARY KEY,
+    account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    friend_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    status      TEXT    NOT NULL DEFAULT 'pending', -- 'pending' | 'accepted'
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Prevents duplicate requests in the same direction. The reverse
+    -- direction is blocked in application code (see sendFriendRequest),
+    -- since a UNIQUE constraint can't express "either ordering".
+    CONSTRAINT friendships_unique_pair UNIQUE (account_id, friend_id),
+    CONSTRAINT friendships_no_self CHECK (account_id <> friend_id)
+);
+CREATE INDEX IF NOT EXISTS friendships_account_idx ON friendships(account_id);
+CREATE INDEX IF NOT EXISTS friendships_friend_idx  ON friendships(friend_id);
+
+-- Direct messages. Kept as plain rows so history survives restarts --
+-- unlike in-battle chat, which is deliberately ephemeral and lives only
+-- in the match's in-memory state.
+CREATE TABLE IF NOT EXISTS direct_messages (
+    id           BIGSERIAL PRIMARY KEY,
+    sender_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    recipient_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    body         TEXT    NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Conversations are always fetched as "messages between these two
+-- accounts, newest last", which this index serves in both directions.
+CREATE INDEX IF NOT EXISTS dm_pair_idx ON direct_messages(sender_id, recipient_id, id);
+CREATE INDEX IF NOT EXISTS dm_recipient_idx ON direct_messages(recipient_id, id);
+
+-- Blocks are one-directional: blocker stops receiving from blocked.
+CREATE TABLE IF NOT EXISTS blocks (
+    id          SERIAL PRIMARY KEY,
+    account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    blocked_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT blocks_unique_pair UNIQUE (account_id, blocked_id),
+    CONSTRAINT blocks_no_self CHECK (account_id <> blocked_id)
+);
+CREATE INDEX IF NOT EXISTS blocks_account_idx ON blocks(account_id);

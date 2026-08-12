@@ -33,7 +33,7 @@ export async function findAccountByUsername(username: string): Promise<{ id: num
     `SELECT id, username FROM accounts WHERE LOWER(username) = LOWER($1) LIMIT 1`,
     [username]
   );
-  return res.rowCount ? { id: res.rows[0].id, username: res.rows[0].username } : null;
+  return (res.rowCount ?? 0) > 0 ? { id: res.rows[0].id, username: res.rows[0].username } : null;
 }
 
 // Every friendship row touching this account, in either direction, with
@@ -69,7 +69,7 @@ export async function areFriends(accountId: number, otherId: number): Promise<bo
      LIMIT 1`,
     [accountId, otherId]
   );
-  return res.rowCount > 0;
+  return (res.rowCount ?? 0) > 0;
 }
 
 // Returns 'created' | 'already' | 'accepted_reverse'. The last case is
@@ -81,7 +81,7 @@ export async function sendFriendRequest(accountId: number, targetId: number): Pr
     `SELECT id, status FROM friendships WHERE account_id = $1 AND friend_id = $2 LIMIT 1`,
     [targetId, accountId]
   );
-  if (reverse.rowCount) {
+  if ((reverse.rowCount ?? 0) > 0) {
     if (reverse.rows[0].status === "accepted") return "already";
     await pool.query(`UPDATE friendships SET status = 'accepted' WHERE id = $1`, [reverse.rows[0].id]);
     return "accepted_reverse";
@@ -91,7 +91,7 @@ export async function sendFriendRequest(accountId: number, targetId: number): Pr
     `SELECT id FROM friendships WHERE account_id = $1 AND friend_id = $2 LIMIT 1`,
     [accountId, targetId]
   );
-  if (existing.rowCount) return "already";
+  if ((existing.rowCount ?? 0) > 0) return "already";
 
   await pool.query(
     `INSERT INTO friendships (account_id, friend_id, status) VALUES ($1, $2, 'pending')`,

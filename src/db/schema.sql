@@ -115,3 +115,9 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stored_chest_ids  TEXT[] NOT NULL 
 -- just a plain list of tank ids.
 -- ============================================================================
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS favorite_tank_ids TEXT[] NOT NULL DEFAULT '{}';
+
+-- Special-mission clear counts as "missionId:count" pairs. Drives the
+-- halving payout curve in data/missionCatalog.ts, so this is economy
+-- state, not just a stat -- resetting it would hand out the full
+-- first-clear reward all over again.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS mission_clears TEXT[] NOT NULL DEFAULT '{}';

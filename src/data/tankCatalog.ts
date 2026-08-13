@@ -27,6 +27,10 @@ export const TANK_CATALOG: CatalogTank[] = [
   { id: "ger_kanonenjagdpanzer", tier: 8, price: 0, priceGold: 7000, isGoldTank: true, rewardOnly: false },
   { id: "ussr_su85", tier: 5, price: 0, priceGold: 2000, isGoldTank: true, rewardOnly: false },
   { id: "fra_amx1390", tier: 8, price: 0, priceGold: 6750, isGoldTank: true, rewardOnly: false },
+  // BM-13: rocket artillery, sold for gold like the other premiums.
+  // Must stay in sync with gamescripts/TankCatalog.h -- a tank the
+  // server does not know about simply cannot be bought.
+  { id: "ussr_bm13", tier: 8, price: 0, priceGold: 8200, isGoldTank: true, rewardOnly: false },
   { id: "ussr_isu152", tier: 8, price: 0, priceGold: 7750, isGoldTank: true, rewardOnly: false },
   { id: "ussr_su152", tier: 7, price: 0, priceGold: 6000, isGoldTank: true, rewardOnly: false },
   { id: "ussr_obj261", tier: 10, price: 0, priceGold: 14000, isGoldTank: true, rewardOnly: false },
